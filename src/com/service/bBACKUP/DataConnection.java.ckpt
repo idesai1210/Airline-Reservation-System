@@ -1,0 +1,176 @@
+package com.service;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map.Entry;
+
+public class DataConnection {
+	Connection con;
+	Statement stmt, dirstmt;
+
+	public DataConnection() {
+		try {
+			Class.forName("com.mysql.jdbc.Driver");
+
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+		}
+
+		try {
+			con = DriverManager.getConnection(
+					"jdbc:mysql://localhost:3306/airline_system", "root",
+					"MAVERICK");
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+
+		}
+	}
+
+	public LinkedHashMap<String, List<ResultSet>> flightSearch(
+			String dept_code, String arr_code) {
+		ResultSet rs = null;
+		LinkedHashMap<String, List<ResultSet>> res = new LinkedHashMap<String, List<ResultSet>>();
+
+		try {
+			ResultSet dirRes = null;
+			stmt = con.createStatement();
+			dirstmt = con.createStatement();
+			String sql;
+			sql = "select distinct f.flight_number,departure_airport_code,arrival_airport_code,f.airline,f.weekdays "
+					+ "from flight f,flight_instance i "
+					+ "where departure_airport_code='"
+					+ dept_code
+					+ "' and arrival_airport_code='" + arr_code + "'";
+			dirRes = dirstmt.executeQuery(sql);
+			
+					List<ResultSet> tempList1 = new ArrayList<ResultSet>();
+					tempList1.add(dirRes);
+					res.put("Direct", tempList1);
+				
+			
+			Iterator<Entry<String, List<ResultSet>>> it = res.entrySet()
+					.iterator();
+			while (it.hasNext()) {
+				Entry<String, List<ResultSet>> entry = it.next();
+				List<ResultSet> li = entry.getValue();
+				for (int i = 0; i < li.size(); i++) {
+					ResultSet r = li.get(i);
+					System.out.println(r.getString(1)+"DIRE");
+				}
+			}
+
+			sql = "select distinct arrival_airport_code AS intermediate_airport_code from flight_instance "
+					+ " where Arrival_airport_code in "
+					+ "(select departure_airport_code "
+					+ "from flight_instance where arrival_airport_code = '"
+					+ arr_code
+					+ "')and departure_airport_code = '"
+					+ dept_code
+					+ "';";
+			rs = stmt.executeQuery(sql);
+
+			if (rs.next()) {
+				rs.previous();
+				while (rs.next()) {
+					List<ResultSet> tempList = new ArrayList<ResultSet>();
+					tempList.clear();
+					System.out.println("1st" + rs.getString(1));
+
+					ResultSet temp1, temp2;
+					Statement stmt1, stmt2;
+					stmt1 = con.createStatement();
+					stmt2 = con.createStatement();
+
+					sql = "select distinct f.flight_number,departure_airport_code,arrival_airport_code,f.airline,f.weekdays from flight f,flight_instance i "
+							+ " where f.flight_number=i.flight_number and departure_airport_code = '"
+							+ dept_code
+							+ "' and arrival_airport_code = '"
+							+ rs.getString(1) + "';";
+					temp1 = stmt1.executeQuery(sql);
+					temp1.next();
+					System.out.println(temp1.getString(1) + "  "
+							+ temp1.getString(4) + "  " + temp1.getString(5));
+
+					sql = "select distinct f.flight_number,departure_airport_code,arrival_airport_code,f.airline,f.weekdays from flight f,flight_instance i "
+							+ " where f.flight_number=i.flight_number and arrival_airport_code = '"
+							+ arr_code
+							+ "' and departure_airport_code = '"
+							+ rs.getString(1) + "';";
+
+					temp2 = stmt2.executeQuery(sql);
+					temp2.next();
+					System.out.println(temp2.getString(1) + "  "
+							+ temp2.getString(4) + "  " + temp2.getString(5));
+
+					tempList.add(temp1);
+					tempList.add(temp2);
+					res.put(rs.getString(1), tempList);
+
+				}
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return res;
+	}
+
+	public ResultSet seatAvailability(String fnumber, String date) {
+		ResultSet rs = null;
+		try {
+			stmt = con.createStatement();
+			String sql = "select number_of_available_seats from flight_instance where flight_number= '"
+					+ fnumber + "' and date='" + date + "';";
+			rs = stmt.executeQuery(sql);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return rs;
+	}
+
+	public ResultSet fareInfo(String fnumber) {
+		ResultSet rs = null;
+		try {
+			stmt = con.createStatement();
+			String sql = "select flight_number, Fare_code, amount, restrictions from fare where flight_number='"
+					+ fnumber + "';";
+			rs = stmt.executeQuery(sql);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return rs;
+	}
+
+	public ResultSet passInfo(String fnumber, String date) {
+		ResultSet rs = null;
+		try {
+			stmt = con.createStatement();
+			String sql = "select customer_name from seat_reservation where flight_number = '"
+					+ fnumber + "' and date ='" + date + "';";
+			rs = stmt.executeQuery(sql);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return rs;
+	}
+
+	public ResultSet flightList(String pname) {
+		ResultSet rs = null;
+		try {
+			stmt = con.createStatement();
+			String sql = "select flight_number from seat_reservation where customer_name = '"
+					+ pname + "';";
+			rs = stmt.executeQuery(sql);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return rs;
+	}
+}
